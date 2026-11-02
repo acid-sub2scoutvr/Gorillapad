@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 using WalkSimulator.Animators;
 using WalkSimulator.Rigging;
@@ -108,10 +109,21 @@ namespace WalkSimulator.Menus
 
         void Update()
         {
+            Gamepad gamepad = Gamepad.current;
+
+            if (gamepad == null)
+            {
+                if (inUse)
+                    Exit();
+
+                return;
+            }
+
             if (Time.time >= nextRangeCheck)
             {
                 nextRangeCheck = Time.time + RangeCheckInterval;
                 inRange = IsInRange();
+
                 if (!inRange && Time.time >= nextScreenRefresh)
                 {
                     nextScreenRefresh = Time.time + ScreenRefreshInterval;
@@ -119,9 +131,9 @@ namespace WalkSimulator.Menus
                 }
             }
 
-            // Check again right when E is pressed, so a stale result can't put you at a computer
-            // you've already walked away from
-            if (Keyboard.current.eKey.wasPressedThisFrame && !inUse && (inRange = IsInRange()))
+            // A / Cross: Use computer
+            if (gamepad.buttonSouth.wasPressedThisFrame &&
+                !inUse && (inRange = IsInRange()))
             {
                 inUse = true;
                 cachedAnimator = Rig.Instance.Animator;
@@ -131,24 +143,22 @@ namespace WalkSimulator.Menus
 
             if (inUse)
             {
-                // Walked (or drifted) away from it, or pressed Escape
-                if (!inRange || !currentScreen || Keyboard.current.escapeKey.wasPressedThisFrame)
+                // Y / Triangle: Exit computer
+                if (!inRange || !currentScreen || gamepad.buttonNorth.wasPressedThisFrame)
                 {
                     Exit();
                     return;
                 }
-                foreach (var key in buttonMapping.Keys)
+
+                foreach (var pair in buttonMapping)
                 {
                     try
                     {
-                        if (key is null)
+                        ButtonControl control = GetControllerButton(gamepad, pair.Key);
+
+                        if (control != null && control.wasPressedThisFrame)
                         {
-                            Logging.Debug("Key is null");
-                        }
-                        if (key.wasPressedThisFrame)
-                        {
-                            Logging.Debug("Pressed", key?.name);
-                            GorillaComputer.instance.PressButton(buttonMapping[key].Binding);
+                            GorillaComputer.instance.PressButton(pair.Value.Binding);
                             Sounds.Play(66, .5f);
                         }
                     }
@@ -189,9 +199,7 @@ namespace WalkSimulator.Menus
             string text = "";
             if (inRange)
             {
-                text = inUse ?
-                    "Press [Escape] to exit" :
-                    "Press [E] to use computer";
+                text = inUse ? "Press [Y / TRIANGLE] to exit" : "Press [A / CROSS] to use computer";
             }
             GUI.Label(new Rect(20, 20, 200, 200), text, new GUIStyle()
             {
@@ -205,67 +213,67 @@ namespace WalkSimulator.Menus
 
         }
 
-        Dictionary<KeyControl, GorillaKeyboardButton> buttonMapping = new Dictionary<KeyControl, GorillaKeyboardButton>();
+        Dictionary<GamepadButton, GorillaKeyboardButton> buttonMapping = new Dictionary<GamepadButton, GorillaKeyboardButton>();
+
+        Dictionary<string, GamepadButton> controllerMapping = new Dictionary<string, GamepadButton>()
+        {
+            // Computer controls
+            {"enter", GamepadButton.South},
+            {"delete", GamepadButton.East},
+            
+            // Navigation
+            {"up", GamepadButton.DpadNorth},
+            {"down", GamepadButton.DpadSouth},
+            
+            // Computer options
+            {"option1", GamepadButton.LeftShoulder},
+            {"option2", GamepadButton.RightShoulder},
+        };
+
         void BuildButtonMap()
         {
-            // There are several keyboards in the world now (one per terminal); presses all go
-            // to GorillaComputer by binding, so the first button found for each key is enough
+            buttonMapping.Clear();
+
             foreach (var button in FindObjectsByType<GorillaKeyboardButton>(FindObjectsSortMode.None))
             {
-                if (button.characterString is null || !keyMapping.TryGetValue(button.characterString, out Key key))
+                if (button.characterString == null)
                     continue;
-                var control = Keyboard.current[key];
-                if (!buttonMapping.ContainsKey(control))
-                    buttonMapping.Add(control, button);
+
+                if (!controllerMapping.TryGetValue(button.characterString, out GamepadButton gamepadButton))
+                    continue;
+
+                if (!buttonMapping.ContainsKey(gamepadButton))
+                    buttonMapping.Add(gamepadButton, button);
             }
         }
 
-        Dictionary<string, Key> keyMapping = new Dictionary<string, Key>()
+        Dictionary<string, GamepadButton> controllerMapping = new Dictionary<string, GamepadButton>()
         {
-            {"A", Key.A},
-            {"B", Key.B},
-            {"C", Key.C},
-            {"D", Key.D},
-            {"E", Key.E},
-            {"F", Key.F},
-            {"G", Key.G},
-            {"H", Key.H},
-            {"I", Key.I},
-            {"J", Key.J},
-            {"K", Key.K},
-            {"L", Key.L},
-            {"M", Key.M},
-            {"N", Key.N},
-            {"O", Key.O},
-            {"P", Key.P},
-            {"Q", Key.Q},
-            {"R", Key.R},
-            {"S", Key.S},
-            {"T", Key.T},
-            {"U", Key.U},
-            {"V", Key.V},
-            {"W", Key.W},
-            {"X", Key.X},
-            {"Y", Key.Y},
-            {"Z", Key.Z},
-            {"0", Key.Digit0},
-            {"1", Key.Digit1},
-            {"2", Key.Digit2},
-            {"3", Key.Digit3},
-            {"4", Key.Digit4},
-            {"5", Key.Digit5},
-            {"6", Key.Digit6},
-            {"7", Key.Digit7},
-            {"8", Key.Digit8},
-            {"9", Key.Digit9},
-            {"option1", Key.F1},
-            {"option2", Key.F2},
-            {"option3", Key.F3},
-            {"enter", Key.Enter},
-            {"delete", Key.Backspace},
-            {"up", Key.UpArrow},
-            {"down", Key.DownArrow},
+            // Main buttons
+            {"A", GamepadButton.South},
+            {"B", GamepadButton.East},
+            {"X", GamepadButton.West},
+            {"Y", GamepadButton.North},
+            
+            // Shoulder buttons
+            {"LB", GamepadButton.LeftShoulder},
+            {"RB", GamepadButton.RightShoulder},
+            
+            // Triggers (analog controls; handle separately)
+     
+            // Stick clicks
+    {"L3", GamepadButton.LeftStick},
+    {"R3", GamepadButton.RightStick},
 
-        };
+    // Menu buttons
+    {"Start", GamepadButton.Start},
+    {"Select", GamepadButton.Select},
+
+    // D-Pad
+    {"up", GamepadButton.DpadNorth},
+    {"down", GamepadButton.DpadSouth},
+    {"left", GamepadButton.DpadWest},
+    {"right", GamepadButton.DpadEast},
+};
     }
 }
