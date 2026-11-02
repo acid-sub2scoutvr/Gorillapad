@@ -71,9 +71,7 @@ namespace WalkSimulator
                     hoverboardAnimator = this.gameObject.GetOrAddComponent<HoverboardAnimator>();
                     if (!radialMenu)
                     {
-                        radialMenu = Instantiate(
-                                bundle.LoadAsset<GameObject>("Radial Menu")
-                            ).AddComponent<RadialMenu>();
+                        radialMenu = Instantiate(bundle.LoadAsset<GameObject>("Radial Menu")).AddComponent<RadialMenu>();
                     }
                     computerGUI = this.gameObject.GetOrAddComponent<ComputerGUI>();
                     controlsOverlay = this.gameObject.GetOrAddComponent<ControlsOverlay>();
