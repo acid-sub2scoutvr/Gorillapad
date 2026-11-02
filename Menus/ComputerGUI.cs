@@ -1,9 +1,9 @@
-﻿using GorillaLocomotion;
+﻿
+using GorillaLocomotion;
 using GorillaNetworking;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -21,79 +21,44 @@ namespace WalkSimulator.Menus
     public class ComputerGUI : MonoBehaviour
     {
         public static ComputerGUI Instance;
+
         List<TMP_Text> screens = new List<TMP_Text>();
         AnimatorBase cachedAnimator;
         TMP_Text currentScreen;
+
         bool inUse;
+        bool inRange;
+
         const float ViewFieldOfView = 90;
+        const float RangeCheckInterval = .25f;
+        const float ScreenRefreshInterval = 10f;
+
+        float nextRangeCheck;
+        float nextScreenRefresh;
 
         public bool IsInUse => inUse;
 
-        // The text objects that show the computer screen: one per terminal, plus the main computer's
-        void RefreshScreens()
+        // Maps gamepad buttons to the game's computer buttons.
+        Dictionary<GamepadButton, GorillaKeyboardButton> buttonMapping = new Dictionary<GamepadButton, GorillaKeyboardButton>();
+
+        // Maps GorillaKeyboardButton character strings to controller buttons.
+        Dictionary<string, GamepadButton> controllerMapping = new Dictionary<string, GamepadButton>()
         {
-            screens.Clear();
-            foreach (var terminal in FindObjectsByType<GorillaComputerTerminal>(FindObjectsSortMode.None))
-                if (terminal.myScreenText)
-                    screens.Add(terminal.myScreenText);
+            { "enter", GamepadButton.South },          // A / Cross
+            { "delete", GamepadButton.East },          // B / Circle
 
-            var screenText = GorillaComputer.instance.screenText;
-            try
-            {
-                // The main computer pushes its text to whatever is hooked up to this event
-                var callback = Traverse.Create(screenText).Field("updateTextCallback").GetValue<UnityEventBase>();
-                for (int i = 0; callback != null && i < callback.GetPersistentEventCount(); i++)
-                    if (callback.GetPersistentTarget(i) is TMP_Text tmp && !screens.Contains(tmp))
-                        screens.Add(tmp);
-            }
-            catch (Exception e) { Logging.Exception(e); }
+            { "up", GamepadButton.DpadUp },
+            { "down", GamepadButton.DpadDown },
+            { "left", GamepadButton.DpadLeft },
+            { "right", GamepadButton.DpadRight },
 
-            // Fallback: anything currently displaying the computer's screen contents
-            if (!string.IsNullOrEmpty(screenText.currentText))
-                foreach (var tmp in FindObjectsByType<TMP_Text>(FindObjectsSortMode.None))
-                    if (tmp.text == screenText.currentText && !screens.Contains(tmp))
-                        screens.Add(tmp);
-        }
-
-        static Vector3 ScreenCenter(TMP_Text screen)
-        {
-            var rect = screen.rectTransform;
-            return rect.TransformPoint(rect.rect.center);
-        }
-
-        bool inRange;
-        bool IsInRange()
-        {
-            Vector3 headPos = GTPlayer.Instance.headCollider.transform.position;
-            Transform player = GTPlayer.Instance.transform, rig = GorillaTagger.Instance.offlineVRRig.transform;
-            TMP_Text closest = null;
-            float closestDistance = 2;
-            foreach (var screen in screens)
-            {
-                if (!screen || !screen.isActiveAndEnabled) continue;
-                // Skip anything carried by the player
-                if (screen.transform.IsChildOf(player) || screen.transform.IsChildOf(rig)) continue;
-                Vector3 center = ScreenCenter(screen);
-                // Text is read from its -forward side; don't trigger from behind the monitor
-                if (Vector3.Dot(-screen.transform.forward, headPos - center) <= 0) continue;
-                float distance = headPos.Distance(center);
-                if (distance < closestDistance)
-                {
-                    closest = screen;
-                    closestDistance = distance;
-                }
-            }
-            if (closest && closest != currentScreen)
-                Logging.Info("Computer screen in range:", closest.transform.GetPath());
-            currentScreen = closest;
-            return closest;
-        }
-
+            { "option1", GamepadButton.LeftShoulder }, // LB
+            { "option2", GamepadButton.RightShoulder } // RB
+        };
 
         void Awake()
         {
             Instance = this;
-
         }
 
         void Start()
@@ -102,10 +67,98 @@ namespace WalkSimulator.Menus
             RefreshScreens();
         }
 
-        // How often to recheck which screen (if any) you're in front of. Done on a timer: tying it to
-        // frame numbers inside FixedUpdate could skip checks for a long time, leaving a stale result
-        const float RangeCheckInterval = .25f, ScreenRefreshInterval = 10f;
-        float nextRangeCheck, nextScreenRefresh;
+        void RefreshScreens()
+        {
+            screens.Clear();
+
+            foreach (var terminal in FindObjectsByType<GorillaComputerTerminal>(FindObjectsSortMode.None))
+            {
+                if (terminal.myScreenText)
+                    screens.Add(terminal.myScreenText);
+            }
+
+            var screenText = GorillaComputer.instance.screenText;
+
+            try
+            {
+                var callback = Traverse.Create(screenText).Field("updateTextCallback").GetValue<UnityEventBase>();
+
+                for (int i = 0;
+                     callback != null && i < callback.GetPersistentEventCount();
+                     i++)
+                {
+                    if (callback.GetPersistentTarget(i) is TMP_Text tmp && !screens.Contains(tmp))
+                    {
+                        screens.Add(tmp);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Logging.Exception(e);
+            }
+
+            if (!string.IsNullOrEmpty(screenText.currentText))
+            {
+                foreach (var tmp in FindObjectsByType<TMP_Text>(
+                    FindObjectsSortMode.None))
+                {
+                    if (tmp.text == screenText.currentText &&
+                        !screens.Contains(tmp))
+                    {
+                        screens.Add(tmp);
+                    }
+                }
+            }
+        }
+
+        static Vector3 ScreenCenter(TMP_Text screen)
+        {
+            var rect = screen.rectTransform;
+            return rect.TransformPoint(rect.rect.center);
+        }
+
+        bool IsInRange()
+        {
+            Vector3 headPos = GTPlayer.Instance.headCollider.transform.position;
+
+            Transform player = GTPlayer.Instance.transform;
+            Transform rig = GorillaTagger.Instance.offlineVRRig.transform;
+
+            TMP_Text closest = null;
+            float closestDistance = 2f;
+
+            foreach (var screen in screens)
+            {
+                if (!screen || !screen.isActiveAndEnabled)
+                    continue;
+
+                // Don't activate computers carried by the player.
+                if (screen.transform.IsChildOf(player) || screen.transform.IsChildOf(rig))
+                    continue;
+
+                Vector3 center = ScreenCenter(screen);
+
+                // Don't activate the computer from behind its screen.
+                if (Vector3.Dot(-screen.transform.forward, headPos - center) <= 0)
+                    continue;
+
+                float distance = headPos.Distance(center);
+
+                if (distance < closestDistance)
+                {
+                    closest = screen;
+                    closestDistance = distance;
+                }
+            }
+
+            if (closest && closest != currentScreen)
+                Logging.Info("Computer screen in range:", closest.transform.GetPath());
+
+            currentScreen = closest;
+
+            return closest != null;
+        }
 
         void Update()
         {
@@ -127,108 +180,101 @@ namespace WalkSimulator.Menus
                 if (!inRange && Time.time >= nextScreenRefresh)
                 {
                     nextScreenRefresh = Time.time + ScreenRefreshInterval;
+
                     RefreshScreens();
+                    BuildButtonMap();
                 }
             }
 
-            // A / Cross: Use computer
-            if (gamepad.buttonSouth.wasPressedThisFrame &&
-                !inUse && (inRange = IsInRange()))
+            if (gamepad.buttonSouth.wasPressedThisFrame && !inUse && (inRange = IsInRange()))
             {
                 inUse = true;
+
                 cachedAnimator = Rig.Instance.Animator;
                 Rig.Instance.Animator = null;
+
                 return;
             }
 
-            if (inUse)
+            if (!inUse)
+                return;
+
+            if (!inRange || !currentScreen ||gamepad.buttonNorth.wasPressedThisFrame)
             {
-                // Y / Triangle: Exit computer
-                if (!inRange || !currentScreen || gamepad.buttonNorth.wasPressedThisFrame)
+                Exit();
+                return;
+            }
+
+            foreach (var pair in buttonMapping)
+            {
+                try
                 {
-                    Exit();
-                    return;
+                    ButtonControl control =GetControllerButton(gamepad, pair.Key);
+
+                    if (control != null && control.wasPressedThisFrame)
+                    {
+                        GorillaComputer.instance.PressButton(pair.Value.Binding);
+
+                        Sounds.Play(66, .5f);
+                    }
                 }
-
-                foreach (var pair in buttonMapping)
+                catch (Exception e)
                 {
-                    try
-                    {
-                        ButtonControl control = GetControllerButton(gamepad, pair.Key);
-
-                        if (control != null && control.wasPressedThisFrame)
-                        {
-                            GorillaComputer.instance.PressButton(pair.Value.Binding);
-                            Sounds.Play(66, .5f);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Logging.Exception(e);
-                    }
+                    Logging.Exception(e);
                 }
             }
         }
 
-        // Look at the screen through the game's own camera: square up with it and back off just far
-        // enough to fit all of it
-        void LateUpdate()
+        ButtonControl GetControllerButton(Gamepad gamepad, GamepadButton button)
         {
-            if (!inUse || !currentScreen) return;
-            var rect = currentScreen.rectTransform;
-            Vector3 scale = rect.lossyScale;
-            float halfWidth = rect.rect.width * Mathf.Abs(scale.x) / 2;
-            float halfHeight = rect.rect.height * Mathf.Abs(scale.y) / 2;
-            float tanHalfFov = Mathf.Tan(ViewFieldOfView * Mathf.Deg2Rad / 2);
-            var camera = ShoulderCameraControl.Camera;
-            float aspect = camera ? camera.aspect : 16f / 9f;
-            float distance = Mathf.Max(halfHeight, halfWidth / aspect) / tanHalfFov * 1.15f;
-            ShoulderCameraControl.Take(this, ViewFieldOfView);
-            ShoulderCameraControl.Place(ScreenCenter(currentScreen) - rect.forward * distance, Quaternion.LookRotation(rect.forward, rect.up));
-        }
-
-        void Exit()
-        {
-            inUse = false;
-            ShoulderCameraControl.Release(this);
-            Rig.Instance.Animator = cachedAnimator;
-        }
-
-        void OnGUI()
-        {
-            string text = "";
-            if (inRange)
+            switch (button)
             {
-                text = inUse ? "Press [Y / TRIANGLE] to exit" : "Press [A / CROSS] to use computer";
+                case GamepadButton.South:
+                    return gamepad.buttonSouth;
+
+                case GamepadButton.East:
+                    return gamepad.buttonEast;
+
+                case GamepadButton.West:
+                    return gamepad.buttonWest;
+
+                case GamepadButton.North:
+                    return gamepad.buttonNorth;
+
+                case GamepadButton.LeftShoulder:
+                    return gamepad.leftShoulder;
+
+                case GamepadButton.RightShoulder:
+                    return gamepad.rightShoulder;
+
+                case GamepadButton.LeftStick:
+                    return gamepad.leftStickButton;
+
+                case GamepadButton.RightStick:
+                    return gamepad.rightStickButton;
+
+                case GamepadButton.Start:
+                    return gamepad.startButton;
+
+                case GamepadButton.Select:
+                    return gamepad.selectButton;
+
+                case GamepadButton.DpadUp:
+                    return gamepad.dpad.up;
+
+                case GamepadButton.DpadDown:
+                    return gamepad.dpad.down;
+
+                case GamepadButton.DpadLeft:
+                    return gamepad.dpad.left;
+
+                case GamepadButton.DpadRight:
+                    return gamepad.dpad.right;
+
+                default:
+                    return null;
             }
-            GUI.Label(new Rect(20, 20, 200, 200), text, new GUIStyle()
-            {
-                fontSize = 20,
-                normal = new GUIStyleState()
-                {
-                    textColor = Color.white
-                }
-            });
-            return;
-
         }
-
-        Dictionary<GamepadButton, GorillaKeyboardButton> buttonMapping = new Dictionary<GamepadButton, GorillaKeyboardButton>();
-
-        Dictionary<string, GamepadButton> controllerMapping = new Dictionary<string, GamepadButton>()
-        {
-            // Computer controls
-            {"enter", GamepadButton.South},
-            {"delete", GamepadButton.East},
-            
-            // Navigation
-            {"up", GamepadButton.DpadNorth},
-            {"down", GamepadButton.DpadSouth},
-            
-            // Computer options
-            {"option1", GamepadButton.LeftShoulder},
-            {"option2", GamepadButton.RightShoulder},
-        };
 
         void BuildButtonMap()
         {
@@ -239,41 +285,70 @@ namespace WalkSimulator.Menus
                 if (button.characterString == null)
                     continue;
 
-                if (!controllerMapping.TryGetValue(button.characterString, out GamepadButton gamepadButton))
+                if (!controllerMapping.TryGetValue(button.characterString,out GamepadButton gamepadButton))
+                {
                     continue;
+                }
 
                 if (!buttonMapping.ContainsKey(gamepadButton))
+                {
                     buttonMapping.Add(gamepadButton, button);
+                }
             }
         }
 
-        Dictionary<string, GamepadButton> controllerMapping = new Dictionary<string, GamepadButton>()
+        void LateUpdate()
         {
-            // Main buttons
-            {"A", GamepadButton.South},
-            {"B", GamepadButton.East},
-            {"X", GamepadButton.West},
-            {"Y", GamepadButton.North},
-            
-            // Shoulder buttons
-            {"LB", GamepadButton.LeftShoulder},
-            {"RB", GamepadButton.RightShoulder},
-            
-            // Triggers (analog controls; handle separately)
-     
-            // Stick clicks
-    {"L3", GamepadButton.LeftStick},
-    {"R3", GamepadButton.RightStick},
+            if (!inUse || !currentScreen)
+                return;
 
-    // Menu buttons
-    {"Start", GamepadButton.Start},
-    {"Select", GamepadButton.Select},
+            var rect = currentScreen.rectTransform;
 
-    // D-Pad
-    {"up", GamepadButton.DpadNorth},
-    {"down", GamepadButton.DpadSouth},
-    {"left", GamepadButton.DpadWest},
-    {"right", GamepadButton.DpadEast},
-};
+            Vector3 scale = rect.lossyScale;
+
+            float halfWidth = rect.rect.width * Mathf.Abs(scale.x) / 2;
+
+            float halfHeight = rect.rect.height * Mathf.Abs(scale.y) / 2;
+
+            float tanHalfFov = Mathf.Tan(ViewFieldOfView * Mathf.Deg2Rad / 2);
+
+            var camera = ShoulderCameraControl.Camera;
+
+            float aspect = camera ? camera.aspect : 16f / 9f;
+
+            float distance = Mathf.Max(halfHeight, halfWidth / aspect) / tanHalfFov * 1.15f;
+
+            ShoulderCameraControl.Take(this, ViewFieldOfView);
+
+            ShoulderCameraControl.Place(ScreenCenter(currentScreen) - rect.forward * distance,Quaternion.LookRotation(rect.forward, rect.up));
+        }
+
+        void Exit()
+        {
+            inUse = false;
+
+            ShoulderCameraControl.Release(this);
+
+            Rig.Instance.Animator = cachedAnimator;
+        }
+
+        void OnGUI()
+        {
+            string text = "";
+
+            if (inRange)
+            {
+                text = inUse ? "Press [Y / TRIANGLE] to exit" : "Press [A / CROSS] to use computer";
+            }
+
+            GUI.Label(new Rect(20, 20, 300, 200), text, new GUIStyle()
+                {
+                    fontSize = 20,
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white
+                    }
+                });
+        }
     }
 }
