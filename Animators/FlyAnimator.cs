@@ -5,10 +5,10 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     public class FlyAnimator : AnimatorBase
     {

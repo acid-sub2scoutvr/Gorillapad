@@ -1,6 +1,6 @@
 # GorillaPad
 
-- Fork of [WalkSimulator](https://github.com/KyleTheScientist/WalkSimulator) with added gamepad/controller support!
+- Fork of [Gorillapad](https://github.com/KyleTheScientist/Gorillapad) with added gamepad/controller support!
 
 Play Gorilla Tag using a gamepad or controller, no VR headset required! Walk, run, climb walls, swim, fly, and ride ziplines, ropes, gliders, broomsticks and hoverboards, all with procedurally animated gorilla arms.
 

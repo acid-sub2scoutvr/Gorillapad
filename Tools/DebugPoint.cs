@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Text;
 using UnityEngine;
 
-namespace WalkSimulator.Tools
+namespace Gorillapad.Tools
 {
     public class DebugPoint : MonoBehaviour
     {

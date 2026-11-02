@@ -5,7 +5,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 
-namespace WalkSimulator.Patches
+namespace Gorillapad.Patches
 {
     /// <summary>
     /// When a zone doesn't support the selected modded game mode's base type (e.g. Modded Infection

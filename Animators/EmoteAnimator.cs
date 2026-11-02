@@ -5,10 +5,10 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Patches;
-using WalkSimulator.Rigging;
+using Gorillapad.Patches;
+using Gorillapad.Rigging;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     public class EmoteAnimator : AnimatorBase
     {

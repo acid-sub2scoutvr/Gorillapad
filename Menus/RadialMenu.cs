@@ -4,10 +4,10 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
-using WalkSimulator.Animators;
-using WalkSimulator.Rigging;
+using Gorillapad.Animators;
+using Gorillapad.Rigging;
 
-namespace WalkSimulator.Menus
+namespace Gorillapad.Menus
 {
     public class RadialMenu : MonoBehaviour
     {

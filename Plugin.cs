@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using GorillaNetworking;
+using Gorillapad.Animators;
 using HarmonyLib;
 using Photon.Pun;
 using System;
@@ -10,12 +11,12 @@ using System.Reflection;
 using UnityEngine;
 using Utilla;
 using Utilla.Attributes;
-using WalkSimulator.Animators;
-using WalkSimulator.Menus;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Animators;
+using Gorillapad.Menus;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator
+namespace Gorillapad
 {
     [ModdedGamemode]
     [BepInDependency("org.legoandmars.gorillatag.utilla", "1.5.0")]
@@ -159,7 +160,7 @@ namespace WalkSimulator
                 Logging.Exception(e);
             }
 
-            bundle = Tools.AssetUtils.LoadAssetBundle("WalkSimulator/assetbundle");            
+            bundle = Tools.AssetUtils.LoadAssetBundle("Gorillapad/assetbundle");            
         }
 
         void Start()

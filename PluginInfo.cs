@@ -1,4 +1,4 @@
-﻿namespace WalkSimulator
+﻿namespace Gorillapad
 {
     /// <summary>
     /// This class is used to provide information about your mod to BepInEx.

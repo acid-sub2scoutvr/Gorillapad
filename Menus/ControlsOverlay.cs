@@ -1,13 +1,15 @@
+
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Animators;
-using WalkSimulator.Rigging;
+using Gorillapad.Animators;
+using Gorillapad.Rigging;
 
-namespace WalkSimulator.Menus
+namespace Gorillapad.Menus
 {
     /// <summary>
-    /// Lists the controls for the current mode in the bottom-left corner. H toggles it.
+    /// Lists the controls for the current mode in the bottom-left corner.
+    /// Start toggles the overlay.
     /// </summary>
     public class ControlsOverlay : MonoBehaviour
     {
@@ -15,179 +17,221 @@ namespace WalkSimulator.Menus
 
         void Update()
         {
-            if (Keyboard.current.hKey.wasPressedThisFrame && !ComputerGUI.Instance.IsInUse)
+            Gamepad gamepad = Gamepad.current;
+
+            if (gamepad != null && gamepad.startButton.wasPressedThisFrame && (ComputerGUI.Instance == null || !ComputerGUI.Instance.IsInUse))
+            {
                 Plugin.ShowControls.Value = !Plugin.ShowControls.Value;
+            }
         }
 
         List<(string key, string action)> CurrentControls()
         {
             var lines = new List<(string, string)>();
+
             var plugin = Plugin.Instance;
             var animator = Rig.Instance ? Rig.Instance.Animator : null;
 
             if (ComputerGUI.Instance && ComputerGUI.Instance.IsInUse)
             {
                 lines.Add(("Computer", ""));
-                lines.Add(("Letters / 0-9", "Type"));
-                lines.Add(("F1 / F2 / F3", "Option buttons"));
-                lines.Add(("Enter", "Enter"));
-                lines.Add(("Backspace", "Delete"));
-                lines.Add(("Up / Down", "Change screen"));
-                lines.Add(("Esc", "Leave the computer"));
+                lines.Add(("D-Pad", "Navigate"));
+                lines.Add(("A / Cross", "Select / Enter"));
+                lines.Add(("B / Circle", "Delete / Back"));
+                lines.Add(("LB / RB", "Computer options"));
+                lines.Add(("Y / Triangle", "Leave computer"));
                 return lines;
             }
 
             if (plugin.radialMenu && plugin.radialMenu.isActiveAndEnabled)
             {
-                lines.Add(("Mode menu", ""));
-                lines.Add(("Mouse", "Point at a mode"));
-                lines.Add(("Release Tab", "Choose it"));
+                lines.Add(("Mode Menu", ""));
+                lines.Add(("D-Pad", "Navigate modes"));
+                lines.Add(("A / Cross", "Select mode"));
+                lines.Add(("B / Circle", "Back"));
                 return lines;
             }
 
             if (!animator)
             {
-                lines.Add(("VR mode", ""));
-                lines.Add(("V", "Switch to desktop controls"));
-                lines.Add(("Tab", "Choose a desktop mode"));
-                lines.Add(("H", "Hide controls"));
+                lines.Add(("Vr Mode", ""));
+                lines.Add(("Start", "Show / hide controls"));
                 return lines;
             }
 
             if (animator == plugin.walkAnimator)
             {
                 lines.Add(("Walk", ""));
-                lines.Add(("WASD", "Move"));
-                lines.Add(("Mouse", "Look"));
-                lines.Add(("Shift", "Sprint"));
-                lines.Add(("Space", "Jump"));
-                lines.Add(("Space + into wall", "Wall jump (repeat to climb)"));
-                lines.Add(("Ctrl", "Crouch"));
-                lines.Add(("Hold click", "Grab a zipline, rope, glider, broom or board"));
+                lines.Add(("Left Stick", "Move"));
+                lines.Add(("Right Stick", "Look"));
+                lines.Add(("L3", "Sprint"));
+                lines.Add(("A / Cross", "Jump"));
+                lines.Add(("A + toward wall", "Wall jump"));
+                lines.Add(("B / Circle", "Crouch"));
+                lines.Add(("LT / RT", "Grab left / right"));
             }
             else if (animator == plugin.flyAnimator)
             {
-                bool noClip = (plugin.flyAnimator as FlyAnimator).NoClip;
+                var fly = plugin.flyAnimator as FlyAnimator;
+
                 lines.Add(("Fly", ""));
-                lines.Add(("WASD", "Move"));
-                lines.Add(("Space / Ctrl", "Up / down"));
-                lines.Add(("Mouse", "Look"));
-                lines.Add(("Shift", "Faster"));
-                lines.Add(("Scroll", $"Flight speed ({(plugin.flyAnimator as FlyAnimator).Speed:0.##}x)"));
-                lines.Add(("N", "Noclip: " + (noClip ? "on" : "off")));
+                lines.Add(("Left Stick", "Move"));
+                lines.Add(("A / Cross", "Fly up"));
+                lines.Add(("B / Circle", "Fly down"));
+                lines.Add(("L3", "Fly faster"));
+                lines.Add(("D-Pad Up / Down", "Flight speed"));
+                lines.Add(("Y / Triangle", "Toggle noclip: " +
+                    (fly != null && fly.NoClip ? "On" : "Off")));
             }
             else if (animator == plugin.swimAnimator)
             {
                 lines.Add(("Swim", ""));
-                lines.Add(("WASD", "Swim (toward where you look)"));
-                lines.Add(("Space / Ctrl", "Up / down"));
-                lines.Add(("Shift", "Faster"));
-                lines.Add(("Space at surface", "Leap out"));
+                lines.Add(("Left Stick", "Swim"));
+                lines.Add(("A / Cross", "Swim up"));
+                lines.Add(("B / Circle", "Swim down"));
+                lines.Add(("L3", "Swim faster"));
+                lines.Add(("A at surface", "Leap out"));
             }
             else if (animator == plugin.ziplineAnimator)
             {
                 lines.Add(("Zipline", ""));
-                lines.Add(("Release click", "Let go"));
-                lines.Add(("Space", "Jump off"));
+                lines.Add(("Left Stick", "Pump / swing"));
+                lines.Add(("A / Cross", "Jump off"));
+                lines.Add(("Release LT / RT", "Let go"));
             }
             else if (animator == plugin.ropeAnimator)
             {
                 lines.Add(("Rope", ""));
-                lines.Add(("WASD", "Swing"));
-                lines.Add(("Space", "Jump off"));
-                lines.Add(("Release click", "Let go"));
+                lines.Add(("Left Stick", "Pump / swing"));
+                lines.Add(("A / Cross", "Jump off"));
+                lines.Add(("Release LT / RT", "Let go"));
             }
             else if (animator == plugin.gliderAnimator)
             {
                 lines.Add(("Glider", ""));
-                lines.Add(("A / D", "Roll (tilt hands)"));
-                lines.Add(("W / S", "Dive / climb"));
-                lines.Add(("On the ground", "WASD walk, Shift sprint, Space jump"));
-                lines.Add(("Mouse", "Look / turn"));
-                lines.Add(("Release click", "Let go"));
+                lines.Add(("Left Stick", "Roll / dive / climb"));
+                lines.Add(("Right Stick", "Look / turn"));
+                lines.Add(("LT / RT", "Hold glider / release"));
             }
             else if (animator == plugin.broomAnimator)
             {
                 lines.Add(("Broomstick", ""));
-                lines.Add(("Release click", "Let go"));
-                lines.Add(("Space", "Jump off"));
+                lines.Add(("Left Stick", "Pump / swing"));
+                lines.Add(("A / Cross", "Jump off"));
+                lines.Add(("Release LT / RT", "Let go"));
             }
             else if (animator == plugin.hoverboardAnimator)
             {
                 lines.Add(("Hoverboard", ""));
-                lines.Add(("Mouse", "Steer"));
-                lines.Add(("A / D", "Carve"));
-                lines.Add(("W", "Paddle"));
-                lines.Add(("Space", "Hop"));
-                lines.Add(("Release click", "Let go"));
+                lines.Add(("Right Stick", "Steer"));
+                lines.Add(("Left Stick", "Carve / paddle"));
+                lines.Add(("A / Cross", "Hop"));
+                lines.Add(("Release LT / RT", "Let go"));
             }
             else if (animator == plugin.emoteAnimator)
             {
                 lines.Add(("Emote", ""));
-                lines.Add(("Move / same number", "Stop"));
+                lines.Add(("D-Pad", "Select emote"));
+                lines.Add(("Repeat / move", "Stop emote"));
             }
             else if (animator == plugin.handAnimator)
             {
                 lines.Add(("Pose", ""));
-                lines.Add(("Mouse", "Move hand"));
-                lines.Add(("Scroll / Up / Down", "Hand forward / back"));
-                lines.Add(("Hold R + mouse", "Rotate hand (scroll rolls)"));
-                lines.Add(("Q", "Switch hand"));
-                lines.Add(("Left / right click", "Trigger / grip"));
-                lines.Add(("[ / ]", "Thumb buttons"));
+                lines.Add(("Right Stick", "Move hand"));
+                lines.Add(("D-Pad Up / Down", "Hand forward / back"));
+                lines.Add(("LB / RB", "Rotate hand"));
+                lines.Add(("Y / Triangle", "Switch hands"));
+                lines.Add(("LT / RT", "Trigger / grip"));
+                lines.Add(("D-Pad Left / Right", "Thumb buttons"));
             }
             else if (animator == plugin.grabAnimator)
             {
                 lines.Add(("Interact", ""));
-                lines.Add(("Left / right click", "Press a button with left / right hand"));
-                lines.Add(("Hold click + mouse", "Drag a slider up / down"));
+                lines.Add(("LT / RT", "Press with left / right hand"));
+                lines.Add(("Left Stick Up / Down", "Drag slider"));
             }
 
             lines.Add(("", ""));
-            lines.Add(("Tab", "Mode menu"));
-            lines.Add(("1-6", "Emotes"));
-            lines.Add(("C", "First / third person"));
-            lines.Add(("Esc", "Free / lock cursor"));
-            lines.Add(("E", "Use computer (when near one)"));
-            lines.Add(("V", "Switch to VR"));
-            lines.Add(("H", "Hide controls"));
+            lines.Add(("General Controls", ""));
+            lines.Add(("Start", "Show / hide controls"));
+            lines.Add(("D-Pad", "Navigate menus"));
+            lines.Add(("A / Cross", "Confirm / interact"));
+            lines.Add(("B / Circle", "Back / cancel"));
+            lines.Add(("X / Square", "First / third person"));
+            lines.Add(("Y / Triangle", "Gameplay mode"));
+            lines.Add(("LB / RB", "Cycle emotes"));
+            lines.Add(("View / Select", "Mode menu"));
+
             return lines;
         }
 
         void OnGUI()
         {
-            if (!Plugin.ShowControls.Value || !Plugin.Instance.Enabled) return;
+            if (!Plugin.ShowControls.Value ||
+                !Plugin.Instance.Enabled)
+                return;
 
             if (boxStyle == null)
             {
                 var background = new Texture2D(1, 1);
                 background.SetPixel(0, 0, new Color(0, 0, 0, .55f));
                 background.Apply();
-                boxStyle = new GUIStyle() { normal = new GUIStyleState() { background = background } };
+
+                boxStyle = new GUIStyle()
+                {
+                    normal = new GUIStyleState()
+                    {
+                        background = background
+                    }
+                };
+
                 textStyle = new GUIStyle()
                 {
                     fontSize = 16,
                     richText = true,
-                    normal = new GUIStyleState() { textColor = Color.white }
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white
+                    }
                 };
             }
 
             var lines = CurrentControls();
-            const float lineHeight = 22, padding = 10, keyWidth = 170, width = 470;
+
+            const float lineHeight = 22;
+            const float padding = 10;
+            const float keyWidth = 190;
+            const float width = 490;
+
             float height = lines.Count * lineHeight + padding * 2;
-            var area = new Rect(20, Screen.height - height - 20, width, height);
+
+            var area = new Rect(
+                20,
+                Screen.height - height - 20,
+                width,
+                height
+            );
+
             GUI.Box(area, GUIContent.none, boxStyle);
 
             float y = area.y + padding;
+
             foreach (var (key, action) in lines)
             {
                 if (action == "" && key != "")
-                    GUI.Label(new Rect(area.x + padding, y, width, lineHeight), $"<b><size=18>{key}</size></b>", textStyle);
+                {
+                    GUI.Label(
+                        new Rect(area.x + padding, y, width, lineHeight),
+                        $"<b><size=18>{key}</size></b>",
+                        textStyle
+                    );
+                }
                 else
                 {
                     GUI.Label(new Rect(area.x + padding, y, keyWidth, lineHeight), $"<b>{key}</b>", textStyle);
-                    GUI.Label(new Rect(area.x + padding + keyWidth, y, width - keyWidth, lineHeight), action, textStyle);
+                    GUI.Label(new Rect(area.x + padding + keyWidth,y, width - keyWidth, lineHeight),action, textStyle);
                 }
+
                 y += lineHeight;
             }
         }

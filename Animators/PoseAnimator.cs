@@ -2,10 +2,10 @@
 using Photon.Voice;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Rigging;
+using Gorillapad.Rigging;
 
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     public class PoseAnimator : AnimatorBase
     {

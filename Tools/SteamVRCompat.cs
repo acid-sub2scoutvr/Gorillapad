@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
-namespace WalkSimulator.Tools
+namespace Gorillapad.Tools
 {
     /// <summary>
     /// Everything that touches SteamVR. The Oculus/Meta PC version of the game ships without parts of

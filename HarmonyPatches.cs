@@ -2,7 +2,7 @@
 using System;
 using System.Reflection;
 
-namespace WalkSimulator
+namespace Gorillapad
 {
     /// <summary>
     /// This class handles applying harmony patches to the game.

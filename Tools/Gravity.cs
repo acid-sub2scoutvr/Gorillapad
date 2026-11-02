@@ -1,7 +1,7 @@
 using GorillaLocomotion;
 using UnityEngine;
 
-namespace WalkSimulator.Tools
+namespace Gorillapad.Tools
 {
     /// <summary>
     /// The player's current gravity. Gravity zones can point it any way (walls, ceilings, planets),

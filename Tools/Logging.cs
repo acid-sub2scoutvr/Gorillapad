@@ -3,7 +3,7 @@ using System.Diagnostics;
 using BepInEx.Logging;
 using Photon.Pun;
 
-namespace WalkSimulator
+namespace Gorillapad
 {
     public static class Logging
     {

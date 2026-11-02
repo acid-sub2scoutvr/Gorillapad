@@ -4,10 +4,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using WalkSimulator.Patches;
-using WalkSimulator.Tools;
+using Gorillapad.Patches;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Rigging
+namespace Gorillapad.Rigging
 {
     public class HandDriver : MonoBehaviour
     {

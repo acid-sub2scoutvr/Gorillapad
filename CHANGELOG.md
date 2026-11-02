@@ -41,7 +41,7 @@
 
 ## 3.0.0
 
-WalkSimulator is back for the current version of Gorilla Tag, with a rebuilt walk and a lot of new ways to get around.
+Gorillapad is back for the current version of Gorilla Tag, with a rebuilt walk and a lot of new ways to get around.
 
 ### Requirements
 

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace WalkSimulator.Tools
+namespace Gorillapad.Tools
 {
     /// <summary>
     /// Borrows the game's own desktop (shoulder) camera for first person and the computer view,

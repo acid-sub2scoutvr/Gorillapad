@@ -2,11 +2,11 @@ using GorillaLocomotion;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Patches;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Patches;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     /// <summary>
     /// Hang gliders. While walking, hold either mouse button near a glider to grab it.

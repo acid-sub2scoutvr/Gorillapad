@@ -2,7 +2,7 @@
 using System.Text;
 using UnityEngine;
 
-namespace WalkSimulator.Tools
+namespace Gorillapad.Tools
 {
     public static class Extensions
     {

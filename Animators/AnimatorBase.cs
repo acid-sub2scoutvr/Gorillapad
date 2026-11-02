@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections;
 using UnityEngine;
-using WalkSimulator.Rigging;
+using Gorillapad.Rigging;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     public abstract class AnimatorBase : MonoBehaviour
     {

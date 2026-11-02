@@ -11,12 +11,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
-using WalkSimulator.Animators;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
-using WalkSimulatorClassic;
+using Gorillapad.Animators;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
+using GorillapadClassic;
 
-namespace WalkSimulator.Menus
+namespace Gorillapad.Menus
 {
     public class ComputerGUI : MonoBehaviour
     {

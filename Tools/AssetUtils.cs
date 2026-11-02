@@ -3,7 +3,7 @@ using System.IO;
 using UnityEngine;
 using System.Reflection;
 
-namespace WalkSimulator.Tools
+namespace Gorillapad.Tools
 {
     public static class AssetUtils
     {

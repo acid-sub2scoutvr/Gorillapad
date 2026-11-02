@@ -1,4 +1,4 @@
-﻿namespace WalkSimulatorClassic
+﻿namespace GorillapadClassic
 {
     public static class Sounds
     {

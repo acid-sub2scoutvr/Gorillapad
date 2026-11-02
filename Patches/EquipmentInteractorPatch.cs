@@ -1,7 +1,7 @@
 using HarmonyLib;
-using WalkSimulator.Animators;
+using Gorillapad.Animators;
 
-namespace WalkSimulator.Patches
+namespace Gorillapad.Patches
 {
     /// <summary>
     /// The game only grabs an item whose interaction point its hand collider is overlapping, which

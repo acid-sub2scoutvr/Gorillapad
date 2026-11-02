@@ -1,10 +1,10 @@
 using GorillaLocomotion;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     /// <summary>
     /// Procedural knuckle-walk.
@@ -64,24 +64,18 @@ namespace WalkSimulator.Animators
         float moveWeight;                       // 0 standing .. 1 walking, smoothed
         float height = RideHeight, dip;
         bool wasMoving, wasOnGround = true, needsPlant = true;
-
         float Scale => GTPlayer.Instance.scale;
-        bool IsSprinting => Keyboard.current.leftShiftKey.isPressed;
-        bool NotMoving => InputHandler.inputDirectionNoY == Vector3.zero;
+        static Gamepad CurrentGamepad => Gamepad.current;
+        Vector2 LeftStickInput => CurrentGamepad != null ? Vector2.ClampMagnitude(CurrentGamepad.leftStick.ReadValue(), 1f) : Vector2.zero;
+        bool IsSprinting => CurrentGamepad != null && CurrentGamepad.leftStickButton.isPressed;
+        bool IsCrouching => CurrentGamepad != null && CurrentGamepad.buttonEast.isPressed;
+        bool NotMoving => LeftStickInput.sqrMagnitude < 0.01f;
         float Stride => (IsSprinting ? SprintStride : WalkStride) * Scale;
         float Duty => IsSprinting ? SprintDuty : WalkDuty;
-        // Rig moves the body toward its target at 4x the offset per second, so the walk target's
-        // offset of speed / 10 works out to this many m/s
-        float GroundSpeed => (IsSprinting ? WalkSpeed * SprintMultiplier : WalkSpeed) * .4f * Scale;
-        // The same speed a normal jump's impulse gives
+        float GroundSpeed => (IsSprinting ? WalkSpeed * SprintMultiplier : WalkSpeed) * 0.4f * Scale;
         float JumpSpeed => 250 * Scale / rigidbody.mass;
-        Vector3 InputDirection
-        {
-            get
-            {
-                return Gravity.Flatten(body.TransformDirection(InputHandler.inputDirectionNoY)).normalized;
-            }
-        }
+        Vector3 MoveInput => new Vector3(LeftStickInput.x, 0f, LeftStickInput.y);
+        Vector3 InputDirection => Gravity.Flatten(body.TransformDirection(MoveInput)).normalized;
 
         protected override void Start()
         {
@@ -119,7 +113,7 @@ namespace WalkSimulator.Animators
         {
             if (!Plugin.Instance.Enabled || rig == null || left == null) return;
 
-            if (Keyboard.current.spaceKey.wasPressedThisFrame)
+            if (CurrentGamepad != null && CurrentGamepad.buttonSouth.wasPressedThisFrame)
             {
                 // Holding a direction into a wall jumps off it (on the ground or in the air)
                 if (Time.time - lastWallJump > WallJumpCooldown && FindWall(out RaycastHit wall))
@@ -199,7 +193,7 @@ namespace WalkSimulator.Animators
             float gaitBob = (IsSprinting ? SprintBob : WalkBob) * (.5f - .5f * Mathf.Cos(phase * Mathf.PI * 4));
             float idleBob = IdleBob * (.5f + .5f * Mathf.Sin(Time.time * Mathf.PI * 2));
             float targetHeight = RideHeight + Mathf.Lerp(idleBob, gaitBob, moveWeight);
-            if (Keyboard.current.ctrlKey.isPressed)
+            if (IsCrouching)
                 targetHeight -= CrouchDrop;
 
             // Dip on landing, then recover
@@ -216,7 +210,7 @@ namespace WalkSimulator.Animators
             targetPosition -= body.right * swayAmount;
 
             // Movement
-            Vector3 direction = Gravity.Flatten(body.TransformDirection(InputHandler.inputDirectionNoY));
+            Vector3 direction = Gravity.Flatten(body.TransformDirection(MoveInput));
             if (Vector3.Dot(rig.lastNormal, Gravity.Up) > .3f) // If the slope is too steep, don't correct the direction
                 direction = Vector3.ProjectOnPlane(direction, rig.lastNormal);
             float speed = IsSprinting ? WalkSpeed * SprintMultiplier : WalkSpeed;

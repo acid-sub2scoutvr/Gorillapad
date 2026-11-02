@@ -3,11 +3,11 @@ using HarmonyLib;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Patches;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Patches;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     /// <summary>
     /// Hoverboards, ridden with the game's own hoverboard physics. While walking in a hover area, hold

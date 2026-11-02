@@ -1,13 +1,14 @@
-﻿using System;
+﻿using Gorillapad.Animators;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Animators;
-using WalkSimulator.Menus;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Animators;
+using Gorillapad.Menus;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator
+namespace Gorillapad
 {
     public class InputHandler : MonoBehaviour
     {   

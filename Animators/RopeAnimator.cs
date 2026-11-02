@@ -4,10 +4,10 @@ using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     /// <summary>
     /// Swinging on ropes. While walking, hold either mouse button near a rope to grab it.

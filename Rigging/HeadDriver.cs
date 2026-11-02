@@ -5,9 +5,9 @@ using UnityEngine.InputSystem;
 using UnityEngine;
 using Thirpy = Unity.Cinemachine.Cinemachine3rdPersonFollow;
 using GorillaLocomotion;
-using WalkSimulator.Tools;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Rigging
+namespace Gorillapad.Rigging
 {
     public class HeadDriver : MonoBehaviour
     {

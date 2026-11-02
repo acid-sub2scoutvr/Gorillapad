@@ -12,11 +12,11 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
-using WalkSimulator.Animators;
-using WalkSimulator.Tools;
-using WalkSimulatorClassic;
+using Gorillapad.Animators;
+using Gorillapad.Tools;
+using GorillapadClassic;
 
-namespace WalkSimulator.Rigging
+namespace Gorillapad.Rigging
 {
     public class Rig : MonoBehaviour
     {

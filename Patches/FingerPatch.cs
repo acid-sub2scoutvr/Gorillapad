@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Text;
 using UnityEngine.InputSystem;
 
-namespace WalkSimulator.Patches
+namespace Gorillapad.Patches
 {
     //[HarmonyPatch]
     //public class ControllerPatch

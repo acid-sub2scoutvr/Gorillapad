@@ -2,10 +2,10 @@ using GorillaLocomotion;
 using GorillaLocomotion.Gameplay;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using WalkSimulator.Rigging;
-using WalkSimulator.Tools;
+using Gorillapad.Rigging;
+using Gorillapad.Tools;
 
-namespace WalkSimulator.Animators
+namespace Gorillapad.Animators
 {
     /// <summary>
     /// Hanging onto the flying broomsticks. While walking (or jumping), hold either mouse button when a
