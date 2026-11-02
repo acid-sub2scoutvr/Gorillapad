@@ -1,22 +1,41 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using UnityEngine.InputSystem;
+﻿
 using UnityEngine;
-using Thirpy = Unity.Cinemachine.Cinemachine3rdPersonFollow;
+using UnityEngine.InputSystem;
+using Unity.Cinemachine;
 using GorillaLocomotion;
 using Gorillapad.Tools;
+
+using Thirpy = Unity.Cinemachine.Cinemachine3rdPersonFollow;
 
 namespace Gorillapad.Rigging
 {
     public class HeadDriver : MonoBehaviour
     {
         public static HeadDriver Instance;
+
         public Transform thirpyTarget, head;
-        Vector3 offset = new Vector3(0, 0f, 0);
+
+        Vector3 offset = Vector3.zero;
 
         public bool turn = true;
+
         bool _lockCursor;
+
+        // Gamepad camera sensitivity, in degrees per second.
+        const float HorizontalLookSensitivity = 180f;
+        const float VerticalLookSensitivity = 120f;
+
+        static Gamepad CurrentGamepad => Gamepad.current;
+
+        static Vector2 LookInput =>
+            CurrentGamepad != null
+                ? CurrentGamepad.rightStick.ReadValue()
+                : Vector2.zero;
+
+        static bool FirstPersonPressed =>
+            CurrentGamepad != null &&
+            CurrentGamepad.buttonWest.wasPressedThisFrame;
+
         public bool LockCursor
         {
             get
@@ -26,6 +45,7 @@ namespace Gorillapad.Rigging
             set
             {
                 _lockCursor = value;
+
                 if (_lockCursor)
                 {
                     Cursor.lockState = CursorLockMode.Locked;
@@ -42,84 +62,152 @@ namespace Gorillapad.Rigging
         void Awake()
         {
             Instance = this;
-
         }
+
         void Start()
         {
             thirpyTarget = FindFollowTarget();
         }
 
-        // The transform the shoulder camera follows; tilting it is what makes the monitor view look up/down
+        // Find the transform followed by the shoulder camera.
         Transform FindFollowTarget()
         {
-            var thirpy = FindAnyObjectByType<Thirpy>(FindObjectsInactive.Include);
+            var thirpy =
+                FindAnyObjectByType<Thirpy>(
+                    FindObjectsInactive.Include
+                );
+
             if (thirpy && thirpy.FollowTarget)
                 return thirpy.FollowTarget;
-            var follow = FindAnyObjectByType<GorillaCameraFollow>(FindObjectsInactive.Include);
+
+            var follow =
+                FindAnyObjectByType<GorillaCameraFollow>(
+                    FindObjectsInactive.Include
+                );
+
             if (follow && follow.cinemachineCamera)
                 return follow.cinemachineCamera.Follow;
-            Logging.Warning("Couldn't find the shoulder camera's follow target; vertical look won't move the monitor view");
+
+            Logging.Warning(
+                "Couldn't find the shoulder camera's follow target; " +
+                "vertical look won't move the monitor view"
+            );
+
             return null;
         }
 
         void LateUpdate()
         {
-            if (!head) return;
+            if (!head)
+                return;
+
             AlignCameraWithGravity();
 
-            // First person: look through the game's own camera from the head. While the game's
-            // overlay is up (loading screen, report menu), leave the camera to the game.
+            // X toggles first-person and third-person.
+            if (FirstPersonPressed)
+                ToggleCam();
+
+            // First person: use the game's camera from the head.
+            // Leave the camera alone while the game has an overlay open.
             if (firstPerson && !GTPlayer.Instance.inOverlay)
             {
-                ShoulderCameraControl.Take(this, FirstPersonFieldOfView);
-                ShoulderCameraControl.Place(GTPlayer.Instance.headCollider.transform.TransformPoint(offset), Quaternion.LookRotation(head.forward, Gravity.Up));
+                ShoulderCameraControl.Take(
+                    this,
+                    FirstPersonFieldOfView
+                );
+
+                ShoulderCameraControl.Place(
+                    GTPlayer.Instance.headCollider.transform
+                        .TransformPoint(offset),
+                    Quaternion.LookRotation(head.forward, Gravity.Up)
+                );
             }
             else
+            {
                 ShoulderCameraControl.Release(this);
+            }
 
-            // Turn the camera with the mouse
+            // Gamepad camera movement.
             if (turn)
             {
-                // Horizontal Axis
-                GTPlayer.Instance.Turn(Mouse.current.delta.value.x / 10f);
+                Vector2 look = LookInput;
+                float dt = Time.deltaTime;
 
-                // Vertical axis. Look up to 80 degrees up and 85 down (short of straight up/down, where
-                // the view flips), so buttons low and close are reachable
-                pitch = Mathf.Clamp(pitch - Mouse.current.delta.value.y / 10f, -80, 85);
-                // Built from the body's facing and gravity's up rather than world angles, so it still
-                // works when a gravity zone has tilted the player onto a wall or ceiling
+                // Horizontal look.
+                if (Mathf.Abs(look.x) > .01f)
+                {
+                    GTPlayer.Instance.Turn(
+                        look.x * HorizontalLookSensitivity * dt
+                    );
+                }
+
+                // Vertical look.
+                pitch = Mathf.Clamp(
+                    pitch - look.y * VerticalLookSensitivity * dt,
+                    -80f,
+                    85f
+                );
+
+                // Build the camera rotation relative to gravity.
                 Vector3 up = Gravity.Up;
-                Vector3 facing = Vector3.ProjectOnPlane(GTPlayer.Instance.bodyCollider.transform.forward, up);
-                if (facing.sqrMagnitude < .0001f) facing = Vector3.ProjectOnPlane(head.forward, up);
+
+                Vector3 facing = Vector3.ProjectOnPlane(
+                    GTPlayer.Instance.bodyCollider.transform.forward,
+                    up
+                );
+
+                if (facing.sqrMagnitude < .0001f)
+                {
+                    facing = Vector3.ProjectOnPlane(
+                        head.forward,
+                        up
+                    );
+                }
+
                 if (facing.sqrMagnitude > .0001f)
                 {
-                    Quaternion level = Quaternion.LookRotation(facing, up);
-                    GorillaTagger.Instance.offlineVRRig.headConstraint.rotation = level * Quaternion.Euler(pitch, 0, 0);
-                    // The third-person orbit flips over past about 60 degrees, so cap it there. Set in
-                    // world space, since its parents (the head) can carry pitch of their own that
-                    // would otherwise add to it
+                    Quaternion level =
+                        Quaternion.LookRotation(facing, up);
+
+                    GorillaTagger.Instance.offlineVRRig
+                        .headConstraint.rotation =
+                        level * Quaternion.Euler(pitch, 0, 0);
+
+                    // Limit the third-person camera pitch to prevent
+                    // the shoulder camera orbit from flipping.
                     if (thirpyTarget)
-                        thirpyTarget.rotation = level * Quaternion.Euler(Mathf.Clamp(pitch, -ThirdPersonPitchLimit, ThirdPersonPitchLimit), 0, 0);
+                    {
+                        thirpyTarget.rotation =
+                            level * Quaternion.Euler(
+                                Mathf.Clamp(
+                                    pitch,
+                                    -ThirdPersonPitchLimit,
+                                    ThirdPersonPitchLimit
+                                ),
+                                0,
+                                0
+                            );
+                    }
                 }
-                GTPlayer.Instance.headCollider.transform.localEulerAngles = new Vector3(pitch, 0, 0);
+
+                GTPlayer.Instance.headCollider.transform.localEulerAngles =
+                    new Vector3(pitch, 0, 0);
             }
         }
 
         void OverrideHeadMovement()
         {
-            //GameObject replacement = new GameObject("WalkSim Replacement Head");
-            head = GorillaTagger.Instance.offlineVRRig.head.rigTarget;
-            //GorillaTagger.Instance.offlineVRRig.head.rigTarget = replacement.transform;
+            head = GorillaTagger.Instance.offlineVRRig
+                .head.rigTarget;
         }
 
         bool firstPerson;
         float pitch;
-        const float ThirdPersonPitchLimit = 60;
 
-        // The third-person camera measures its height offset along the brain's world up, which is
-        // world up by default, so it drifted "above" you when a gravity zone turned you upside down.
-        // Point it along gravity instead while the mod is active.
-        Unity.Cinemachine.CinemachineBrain brain;
+        const float ThirdPersonPitchLimit = 60f;
+
+        // Keep the shoulder camera aligned with the current gravity direction.
+        CinemachineBrain brain;
         Transform gravityUp, previousWorldUp;
 
         void AlignCameraWithGravity()
@@ -127,16 +215,30 @@ namespace Gorillapad.Rigging
             if (!brain)
             {
                 var camera = ShoulderCameraControl.Camera;
-                brain = camera ? camera.GetComponentInChildren<Unity.Cinemachine.CinemachineBrain>(true) : null;
-                if (!brain) return;
+
+                brain = camera
+                    ? camera.GetComponentInChildren<CinemachineBrain>(true)
+                    : null;
+
+                if (!brain)
+                    return;
+
                 previousWorldUp = brain.WorldUpOverride;
             }
+
             if (!gravityUp)
-                gravityUp = new GameObject("WalkSim Gravity Up").transform;
-            gravityUp.rotation = Quaternion.FromToRotation(Vector3.up, Gravity.Up);
+            {
+                gravityUp =
+                    new GameObject("WalkSim Gravity Up").transform;
+            }
+
+            gravityUp.rotation =
+                Quaternion.FromToRotation(Vector3.up, Gravity.Up);
+
             brain.WorldUpOverride = gravityUp;
         }
-        const float FirstPersonFieldOfView = 90;
+
+        const float FirstPersonFieldOfView = 90f;
 
         internal void ToggleCam()
         {
@@ -145,14 +247,23 @@ namespace Gorillapad.Rigging
 
         public bool FirstPerson
         {
-            get { return firstPerson; }
-            set { firstPerson = value; }
+            get
+            {
+                return firstPerson;
+            }
+            set
+            {
+                firstPerson = value;
+            }
         }
 
         void OnEnable()
         {
             Logging.Debug("Enabled");
-            if (Rig.Instance.Animator is null) return;
+
+            if (Rig.Instance.Animator == null)
+                return;
+
             LockCursor = true;
             OverrideHeadMovement();
         }
@@ -160,11 +271,17 @@ namespace Gorillapad.Rigging
         void OnDisable()
         {
             ShoulderCameraControl.Release(this);
+
             if (brain && brain.WorldUpOverride == gravityUp)
                 brain.WorldUpOverride = previousWorldUp;
-            if (!head) return;
+
+            if (!head)
+                return;
+
             LockCursor = false;
-            GorillaTagger.Instance.offlineVRRig.head.rigTarget = head;
+
+            GorillaTagger.Instance.offlineVRRig
+                .head.rigTarget = head;
         }
     }
 }

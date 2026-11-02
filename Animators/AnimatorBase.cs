@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections;
 using UnityEngine;
 using Gorillapad.Rigging;
@@ -15,7 +16,15 @@ namespace Gorillapad.Animators
         protected virtual void Start()
         {
             Logging.Debug("==START==");
+
             rig = Rig.Instance;
+
+            if (rig == null)
+            {
+                Logging.Debug("AnimatorBase: Rig.Instance is null!");
+                return;
+            }
+
             body = rig.body;
             head = rig.head;
             rigidbody = rig.rigidbody;
@@ -28,13 +37,18 @@ namespace Gorillapad.Animators
         public virtual void Cleanup()
         {
             this.enabled = false;
+
+            if (rig == null)
+                return;
+
             rig.active = false;
             rig.useGravity = true;
             rig.headDriver.turn = true;
-            leftHand.Reset();
-            rightHand.Reset();
-        }
-        public abstract void Animate();
 
+            leftHand?.Reset();
+            rightHand?.Reset();
+        }
+
+        public abstract void Animate();
     }
 }

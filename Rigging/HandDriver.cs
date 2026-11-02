@@ -1,8 +1,7 @@
-﻿using GorillaLocomotion;
+﻿
+using GorillaLocomotion;
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using Gorillapad.Patches;
 using Gorillapad.Tools;
@@ -14,34 +13,42 @@ namespace Gorillapad.Rigging
         public bool grip, trigger, primary, secondary;
         public bool isLeft, grounded;
         public bool hideControllerTransform = true;
+
         public Vector3 targetPosition, lookAt, up;
         public float followRate = .1f;
-        // Smooth relative to the body instead of the world, so the hand keeps up when the body
-        // moves fast (falling, flying). Use for poses that hang off the body, not planted hands.
+
+        // Smooth relative to the body instead of the world.
         public bool followInBodySpace;
+
         bool wasFollowingInBodySpace;
         Vector3 bodySpacePosition;
+
         public Vector3 hit, lastSnap, normal;
 
         VRMap handMap;
         Vector3 defaultOffset;
-        Transform head, body, controller;
 
-        //void Start()
-        //{
-            
-        //}
+        Transform head, body, controller;
 
         public void Init(bool isLeft)
         {
             this.isLeft = isLeft;
-            defaultOffset = new Vector3(isLeft ? -.25f : .25f, -.45f, .2f);
+
+            defaultOffset = new Vector3(
+                isLeft ? -.25f : .25f,
+                -.45f,
+                .2f
+            );
+
             head = Rig.Instance.head;
             body = Rig.Instance.body;
+
             controller = GTPlayer.Instance.GetControllerTransform(isLeft);
-            handMap = isLeft ?
-                GorillaTagger.Instance.offlineVRRig.leftHand :
-                GorillaTagger.Instance.offlineVRRig.rightHand;
+
+            handMap = isLeft
+                ? GorillaTagger.Instance.offlineVRRig.leftHand
+                : GorillaTagger.Instance.offlineVRRig.rightHand;
+
             transform.position = DefaultPosition;
             targetPosition = DefaultPosition;
             lastSnap = DefaultPosition;
@@ -51,29 +58,45 @@ namespace Gorillapad.Rigging
 
         void FixedUpdate()
         {
+            if (!body || !controller)
+                return;
+
             if (followInBodySpace)
             {
                 if (!wasFollowingInBodySpace)
-                    bodySpacePosition = body.InverseTransformPoint(transform.position);
-                bodySpacePosition = Vector3.Lerp(bodySpacePosition, body.InverseTransformPoint(targetPosition), Extensions.Smoothing(followRate));
-                transform.position = body.TransformPoint(bodySpacePosition);
+                {
+                    bodySpacePosition =
+                        body.InverseTransformPoint(transform.position);
+                }
+
+                bodySpacePosition = Vector3.Lerp(
+                    bodySpacePosition,
+                    body.InverseTransformPoint(targetPosition),
+                    Extensions.Smoothing(followRate)
+                );
+
+                transform.position =
+                    body.TransformPoint(bodySpacePosition);
             }
             else
-                transform.position = Vector3.Lerp(transform.position, targetPosition, Extensions.Smoothing(followRate));
+            {
+                transform.position = Vector3.Lerp(
+                    transform.position,
+                    targetPosition,
+                    Extensions.Smoothing(followRate)
+                );
+            }
+
             wasFollowingInBodySpace = followInBodySpace;
+
             transform.LookAt(lookAt, up);
-            if(hideControllerTransform)
+
+            if (hideControllerTransform)
                 controller.position = body.position;
             else
                 controller.position = transform.position;
 
-            //DebugPoint.Get(this.name + "target", Color.red).position = targetPosition;
-            //DebugPoint.Get(this.name + "hit", Color.blue).position = hit;
-            //DebugPoint.Get(this.name + "snap", Color.green).position = lastSnap;
-            //DebugPoint.Get(this.name + "lookAt", lookAt,  Color.magenta);
-            //DebugPoint.Get(this.name + "up", targetPosition + up * .1f, Color.cyan);
-
-
+            // Apply the forced finger states to the correct hand.
             if (isLeft)
             {
                 FingerPatch.forceLeftGrip = grip;
@@ -92,70 +115,128 @@ namespace Gorillapad.Rigging
 
         void OnEnable()
         {
-            if (!body || Rig.Instance.Animator is null) return;
+            if (!body || Rig.Instance.Animator == null)
+                return;
+
             transform.position = DefaultPosition;
             targetPosition = DefaultPosition;
+
             try
             {
-                handMap.overrideTarget = this.transform;
+                handMap.overrideTarget = transform;
             }
-            catch (Exception e) { Logging.Exception(e); }
+            catch (Exception e)
+            {
+                Logging.Exception(e);
+            }
         }
 
-        // Switching back to VR: give the hand back to the controller and let go of any buttons the
-        // mod was holding for it
+        // Return control of the hand to the normal VR controller.
         void OnDisable()
         {
             try
             {
-                if (handMap != null && handMap.overrideTarget == transform)
+                if (handMap != null &&
+                    handMap.overrideTarget == transform)
+                {
                     handMap.overrideTarget = null;
+                }
             }
-            catch (Exception e) { Logging.Exception(e); }
-            grip = trigger = primary = secondary = false;
+            catch (Exception e)
+            {
+                Logging.Exception(e);
+            }
+
+            ResetButtonStates();
+
             followInBodySpace = false;
+            wasFollowingInBodySpace = false;
+        }
+
+        void ResetButtonStates()
+        {
+            grip = false;
+            trigger = false;
+            primary = false;
+            secondary = false;
+
             if (isLeft)
-                FingerPatch.forceLeftGrip = FingerPatch.forceLeftTrigger = FingerPatch.forceLeftPrimary = FingerPatch.forceLeftSecondary = false;
+            {
+                FingerPatch.forceLeftGrip = false;
+                FingerPatch.forceLeftTrigger = false;
+                FingerPatch.forceLeftPrimary = false;
+                FingerPatch.forceLeftSecondary = false;
+            }
             else
-                FingerPatch.forceRightGrip = FingerPatch.forceRightTrigger = FingerPatch.forceRightPrimary = FingerPatch.forceRightSecondary = false;
+            {
+                FingerPatch.forceRightGrip = false;
+                FingerPatch.forceRightTrigger = false;
+                FingerPatch.forceRightPrimary = false;
+                FingerPatch.forceRightSecondary = false;
+            }
         }
 
         IEnumerator Disable(Action<HandDriver> onDisable)
         {
             transform.position = DefaultPosition;
-            yield return new WaitForSeconds(0.1f);
+
+            yield return new WaitForSeconds(.1f);
+
             handMap.overrideTarget = null;
-            this.enabled = false;
+            enabled = false;
+
             onDisable?.Invoke(this);
         }
 
-        // Places the hand flat against a surface (palm toward -normal) with its knuckles pointing
-        // along forwardHint, curled forward by curl degrees
-        public void Place(Vector3 position, Vector3 normal, Vector3 forwardHint, float curl = 0)
+        // Places the hand flat against a surface.
+        // Palm faces -normal, with knuckles along forwardHint.
+        public void Place(
+            Vector3 position,
+            Vector3 normal,
+            Vector3 forwardHint,
+            float curl = 0
+        )
         {
             targetPosition = position;
-            Vector3 forward = Vector3.ProjectOnPlane(forwardHint, normal).normalized;
-            if (forward == Vector3.zero) forward = body.forward;
+
+            Vector3 forward =
+                Vector3.ProjectOnPlane(forwardHint, normal).normalized;
+
+            if (forward == Vector3.zero)
+                forward = body.forward;
+
             Vector3 right = Vector3.Cross(normal, forward);
-            forward = Quaternion.AngleAxis(curl, right) * forward;
+
+            forward =
+                Quaternion.AngleAxis(curl, right) * forward;
+
             lookAt = position + forward;
+
             up = isLeft ? right : -right;
         }
 
         public void Reset()
         {
             followInBodySpace = false;
-            grip = trigger = primary = false;
+            wasFollowingInBodySpace = false;
+
+            ResetButtonStates();
+
             targetPosition = DefaultPosition;
             lookAt = targetPosition + body.forward;
+
             up = isLeft ? body.right : -body.right;
+
             hideControllerTransform = true;
             grounded = false;
         }
-        
 
-        public Vector3 DefaultPosition { get { return body.TransformPoint(defaultOffset); } }
-
-
+        public Vector3 DefaultPosition
+        {
+            get
+            {
+                return body.TransformPoint(defaultOffset);
+            }
+        }
     }
 }
