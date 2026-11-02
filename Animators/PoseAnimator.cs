@@ -1,9 +1,8 @@
-﻿using GorillaLocomotion;
-using Photon.Voice;
+﻿
+using GorillaLocomotion;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Gorillapad.Rigging;
-
 
 namespace Gorillapad.Animators
 {
@@ -11,84 +10,110 @@ namespace Gorillapad.Animators
     {
         Vector3 offsetLeft, lookAtLeft = Vector3.forward;
         Vector3 offsetRight, lookAtRight = Vector3.forward;
+
         float zRotationLeft, zRotationRight;
+
         HandDriver main, secondary;
+
+        static Gamepad CurrentGamepad => Gamepad.current;
+
+        Vector2 RightStick => CurrentGamepad != null ? Vector2.ClampMagnitude(CurrentGamepad.rightStick.ReadValue(), 1f) : Vector2.zero;
+
         public override void Animate()
         {
             rig.headDriver.turn = false;
+
             AnimateBody();
             AnimateHands();
         }
 
         void Update()
         {
-            if (Keyboard.current.qKey.wasPressedThisFrame)
+            if (CurrentGamepad == null || main == null)
+                return;
+
+            // Y / Triangle switches selected hands.
+            if (CurrentGamepad.buttonNorth.wasPressedThisFrame)
             {
                 var temp = main;
                 main = secondary;
                 secondary = temp;
             }
 
-            if (Keyboard.current.rKey.isPressed)
-                RotateHand();
+            // LB / RB rotate the selected hand.
+            float rotationInput = 0f;
+
+            if (CurrentGamepad.leftShoulder.isPressed)
+                rotationInput -= 1f;
+
+            if (CurrentGamepad.rightShoulder.isPressed)
+                rotationInput += 1f;
+
+            if (rotationInput != 0f)
+                RotateHand(rotationInput);
             else
                 PositionHand();
 
             Vector3 lookAt = main.isLeft ? lookAtLeft : lookAtRight;
             float zRotation = main.isLeft ? zRotationLeft : zRotationRight;
             float flip = main.isLeft ? -1 : 1;
-            main.up = Quaternion.AngleAxis(zRotation * flip, lookAt) * head.up;
 
-            main.trigger = Mouse.current.leftButton.isPressed;
-            main.grip = Mouse.current.rightButton.isPressed;
-            main.primary = Mouse.current.backButton.isPressed || Keyboard.current.leftBracketKey.isPressed;
-            main.secondary = Mouse.current.forwardButton.isPressed || Keyboard.current.rightBracketKey.isPressed;
+            main.up =
+                Quaternion.AngleAxis(zRotation * flip, lookAt) * head.up;
+
+            // LT = trigger, RT = grip.
+            main.trigger = CurrentGamepad.leftTrigger.isPressed;
+            main.grip = CurrentGamepad.rightTrigger.isPressed;
+
+            // D-Pad left/right = primary/secondary.
+            main.primary = CurrentGamepad.dpad.left.isPressed;
+            main.secondary = CurrentGamepad.dpad.right.isPressed;
         }
 
-        // How far one unit of scroll moves the hand forward/back, and rolls it while rotating
-        const float ScrollReachSpeed = .008f, ScrollRollSpeed = 1.6f;
+        const float StickReachSpeed = .01f;
+        const float RotationSpeed = 100f;
 
         Vector3 eulerAngles;
-        void RotateHand()
-        {
-            eulerAngles.x = eulerAngles.x - Mouse.current.delta.value.y / 10f;
-            if (eulerAngles.x > 180)
-                eulerAngles.x -= 360;
-            //clamp rotation between -85 and 85 
-            eulerAngles.x = Mathf.Clamp(eulerAngles.x, -85, 85);
 
-            eulerAngles.y = eulerAngles.y + Mouse.current.delta.value.x / 10f;
-            if (eulerAngles.y > 180)
-                eulerAngles.y -= 360;
-            //clamp rotation between -85 and 85
-            eulerAngles.y = Mathf.Clamp(eulerAngles.y, -85, 85);
+        void RotateHand(float direction)
+        {
+            eulerAngles.z += direction * RotationSpeed * Time.deltaTime;
 
             if (main.isLeft)
             {
                 lookAtLeft = Quaternion.Euler(eulerAngles) * head.forward;
-                zRotationLeft += Mouse.current.scroll.ReadValue().y * ScrollRollSpeed;
+
+                zRotationLeft = eulerAngles.z;
             }
             else
             {
                 lookAtRight = Quaternion.Euler(eulerAngles) * head.forward;
-                zRotationRight += Mouse.current.scroll.ReadValue().y * ScrollRollSpeed;
+
+                zRotationRight = eulerAngles.z;
             }
         }
 
         void PositionHand()
         {
             Vector3 offset = main.isLeft ? offsetLeft : offsetRight;
-            offset.z += Mouse.current.scroll.ReadValue().y * ScrollReachSpeed;
-            if (Keyboard.current.upArrowKey.wasPressedThisFrame)
+
+            Vector2 stick = RightStick;
+
+            // Right stick moves the hand horizontally and vertically.
+            offset.x += stick.x * StickReachSpeed;
+            offset.y += stick.y * StickReachSpeed;
+
+            // D-Pad up/down moves the hand forward/back.
+            if (CurrentGamepad.dpad.up.wasPressedThisFrame)
                 offset.z += .1f;
-            if (Keyboard.current.downArrowKey.wasPressedThisFrame)
+
+            if (CurrentGamepad.dpad.down.wasPressedThisFrame)
                 offset.z -= .1f;
+
+            offset.x = Mathf.Clamp(offset.x, -.5f, .5f);
+            offset.y = Mathf.Clamp(offset.y, -.5f, .5f);
             offset.z = Mathf.Clamp(offset.z, -.25f, .75f);
 
-            offset.x += Mouse.current.delta.ReadValue().x / 1000f;
-            offset.x = Mathf.Clamp(offset.x, -.5f, .5f);
-            offset.y += Mouse.current.delta.ReadValue().y / 1000f;
-            offset.y = Mathf.Clamp(offset.y, -.5f, .5f);
             if (main.isLeft)
                 offsetLeft = offset;
             else
@@ -104,29 +129,42 @@ namespace Gorillapad.Animators
 
         void AnimateHands()
         {
+            if (main == null)
+                return;
+
             float flip = main.isLeft ? -1 : 1;
+
             Vector3 offset = main.isLeft ? offsetLeft : offsetRight;
+
             Vector3 lookAt = main.isLeft ? lookAtLeft : lookAtRight;
+
             main.targetPosition = body.TransformPoint(new Vector3(flip * .2f, 0.1f, .3f) + offset);
+
             main.lookAt = main.targetPosition + lookAt;
-            //main.up = body.up;
             main.hideControllerTransform = false;
         }
 
         public override void Setup()
         {
             base.Start();
+
             HeadDriver.Instance.LockCursor = true;
+
             main = rightHand;
             secondary = leftHand;
 
             offsetLeft = Vector3.zero;
             lookAtLeft = head.forward;
+
             offsetRight = Vector3.zero;
             lookAtRight = head.forward;
 
+            eulerAngles = Vector3.zero;
+
             secondary.targetPosition = secondary.DefaultPosition + Vector3.up * .2f * GTPlayer.Instance.scale;
+
             secondary.lookAt = secondary.targetPosition + head.forward;
+
             secondary.up = body.right * (main.isLeft ? -1 : 1);
         }
     }
